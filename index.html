@@ -249,18 +249,16 @@
   .turno{
     display:flex; align-items:center; gap:8px;
   }
-  .turno input[type="time"]{
-    flex:1;
-    min-width:0;
+  .turno select{
     background: var(--bg-2);
     border: 1px solid var(--line);
     color: var(--ink);
     border-radius: 10px;
-    padding: 8px 8px;
+    padding: 8px 4px;
     font-family: inherit;
     font-size: 14px;
-    font-variant-numeric: tabular-nums;
     color-scheme: dark;
+    text-align: center;
   }
   .turno .arrow{ color: var(--ink-dim); font-size: 13px; flex:none; }
   .turno .rm{
@@ -699,24 +697,65 @@ function render(){
       turni.forEach((turno, idx) => {
         const row = document.createElement('div');
         row.className = 'turno';
+
+        const [startH, startM] = turno.start ? turno.start.split(':') : ['', ''];
+        const [endH, endM] = turno.end ? turno.end.split(':') : ['', ''];
+
+        let oreOptions = '<option value="">--</option>';
+        for(let h=0; h<24; h++) {
+          const val = String(h).padStart(2, '0');
+          oreOptions += `<option value="${val}">${val}</option>`;
+        }
+        
+        let minOptions = '<option value="">--</option>';
+        for(let m=0; m<60; m+=5) {
+          const val = String(m).padStart(2, '0');
+          minOptions += `<option value="${val}">${val}</option>`;
+        }
+
         row.innerHTML = `
-          <input type="time" value="${turno.start||''}" data-role="start">
+          <div style="display:flex; gap:4px; flex:1;">
+            <select data-role="start-h" style="flex:1;">${oreOptions}</select>
+            <select data-role="start-m" style="flex:1;">${minOptions}</select>
+          </div>
           <span class="arrow">→</span>
-          <input type="time" value="${turno.end||''}" data-role="end">
+          <div style="display:flex; gap:4px; flex:1;">
+            <select data-role="end-h" style="flex:1;">${oreOptions}</select>
+            <select data-role="end-m" style="flex:1;">${minOptions}</select>
+          </div>
           <button class="rm">✕</button>
         `;
-        const startInput = row.querySelector('[data-role="start"]');
-        const endInput = row.querySelector('[data-role="end"]');
+
+        const sh = row.querySelector('[data-role="start-h"]'); const sm = row.querySelector('[data-role="start-m"]');
+        const eh = row.querySelector('[data-role="end-h"]');   const em = row.querySelector('[data-role="end-m"]');
         
-        // MODIFICA QUI: Usiamo 'blur' al posto di 'change' per evitare la chiusura immediata su iOS
-        startInput.addEventListener('blur', e=>{
-          dayData.turni[idx].start = e.target.value;
-          save(); render();
-        });
-        endInput.addEventListener('blur', e=>{
-          dayData.turni[idx].end = e.target.value;
-          save(); render();
-        });
+        if(startH) sh.value = startH; if(startM) sm.value = startM;
+        if(endH) eh.value = endH;     if(endM) em.value = endM;
+
+        const salvaOrario = () => {
+          dayData.turni[idx].start = (sh.value && sm.value) ? `${sh.value}:${sm.value}` : '';
+          dayData.turni[idx].end = (eh.value && em.value) ? `${eh.value}:${em.value}` : '';
+          save();
+          updateSummary();
+          renderSummaryTable();
+          
+          // Se l'orario completo è inserito, aggiorna la grafica del badge della giornata senza perdere focus
+          const currentMins = giornoMinuti(giorno);
+          const totalLabel = head.querySelector('.day-total');
+          const stampLabel = head.querySelector('.stamp');
+          if(currentMins > 0) {
+            if(totalLabel) { totalLabel.textContent = fmt(currentMins); totalLabel.classList.add('has-time'); }
+            if(stampLabel) stampLabel.classList.add('filled');
+          } else {
+            if(totalLabel) { totalLabel.textContent = '—'; totalLabel.classList.remove('has-time'); }
+            if(stampLabel) stampLabel.classList.remove('filled');
+          }
+        };
+
+        sh.addEventListener('change', salvaOrario);
+        sm.addEventListener('change', salvaOrario);
+        eh.addEventListener('change', salvaOrario);
+        em.addEventListener('change', salvaOrario);
         
         row.querySelector('.rm').addEventListener('click', ()=>{
           dayData.turni.splice(idx,1);
