@@ -141,6 +141,7 @@
   }
   .gauge-wrap{ position:relative; width:118px; height:118px; flex:none; }
   .gauge-wrap svg{ width:100%; height:100%; display:block; }
+  .gauge-arc-track{ fill:none; stroke:rgba(242,238,221,0.08); stroke-width:10; }
   .gauge-center{
     position:absolute; inset:0;
     display:flex; flex-direction:column; align-items:center; justify-content:center;
@@ -493,7 +494,7 @@
   <div class="gauge-card">
     <div class="gauge-wrap">
       <svg viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(242,238,221,0.08)" stroke-width="10"/>
+        <circle class="gauge-arc-track" cx="60" cy="60" r="50"/>
         <circle id="gaugeArc" cx="60" cy="60" r="50" fill="none" stroke="var(--amber)" stroke-width="10"
           stroke-linecap="round" stroke-dasharray="314.159" stroke-dashoffset="314.159"
           transform="rotate(-90 60 60)" style="transition: stroke-dashoffset .5s ease, stroke .3s ease;"/>
@@ -579,7 +580,6 @@ function ensureWeek(key){
     if(!existing){
       weeks[key][g] = { turni: [], riposo: false };
     } else if(Array.isArray(existing)){
-      // formato precedente: solo un array di turni
       weeks[key][g] = { turni: existing, riposo: false };
     } else {
       if(!Array.isArray(existing.turni)) existing.turni = [];
@@ -707,14 +707,17 @@ function render(){
         `;
         const startInput = row.querySelector('[data-role="start"]');
         const endInput = row.querySelector('[data-role="end"]');
-        startInput.addEventListener('change', e=>{
+        
+        // MODIFICA QUI: Usiamo 'blur' al posto di 'change' per evitare la chiusura immediata su iOS
+        startInput.addEventListener('blur', e=>{
           dayData.turni[idx].start = e.target.value;
           save(); render();
         });
-        endInput.addEventListener('change', e=>{
+        endInput.addEventListener('blur', e=>{
           dayData.turni[idx].end = e.target.value;
           save(); render();
         });
+        
         row.querySelector('.rm').addEventListener('click', ()=>{
           dayData.turni.splice(idx,1);
           save(); render();
@@ -748,10 +751,11 @@ function updateSummary(){
   const circumference = 314.159;
   const offset = circumference * (1 - Math.min(pct,1));
   const arc = document.getElementById('gaugeArc');
-  arc.style.strokeDashoffset = offset;
-
-  const over = totMin > CONTRATTO_MIN;
-  arc.style.stroke = over ? 'var(--red)' : 'var(--amber)';
+  if(arc) {
+    arc.style.strokeDashoffset = offset;
+    const over = totMin > CONTRATTO_MIN;
+    arc.style.stroke = over ? 'var(--red)' : 'var(--amber)';
+  }
 
   document.getElementById('gaugeNum').textContent = fmtShort(totMin);
 
@@ -760,6 +764,7 @@ function updateSummary(){
   const footVal = document.getElementById('footTotal');
 
   footVal.textContent = fmt(totMin);
+  const over = totMin > CONTRATTO_MIN;
   footVal.className = 'f-val ' + (over ? 'over' : 'ok');
 
   if(totMin === 0){
@@ -884,7 +889,6 @@ function load(){
       weeks = JSON.parse(raw);
     }
   }catch(err){
-    // nessun dato salvato ancora, si parte da zero
   }
   state = ensureWeek(todayKey);
   renderWeekNav();
